@@ -4,16 +4,18 @@ import re
 from datetime import datetime
 import os
 from io import BytesIO
+import requests
 
-# --- YOUR ORIGINAL CLASS (PASTED DIRECTLY IN) ---
+# --- YOUR ORIGINAL CLASS (UPDATED TO HANDLE FILE OBJECTS) ---
 class InteractiveMintChecker:
     def __init__(self):
         self.english_to_chinese = {}
 
-    def load_official_mint_database(self, db_path):
-        """Load the official mint names from a file path."""
+    def load_official_mint_database(self, db_source):
+        """Load the official mint names from a file path or file object."""
         try:
-            self.official_mints = pd.read_excel(db_path)
+            # Handle both file paths and file objects (like BytesIO or uploaded files)
+            self.official_mints = pd.read_excel(db_source)
             for _, row in self.official_mints.iterrows():
                 english = str(row['English Mint Name']).strip()
                 chinese = str(row['Chinese Mint Name']).strip()
@@ -24,15 +26,18 @@ class InteractiveMintChecker:
             raise e
 
     def find_english_mint_in_text(self, text):
-        if not text or not isinstance(text, str): return None
+        if not text or not isinstance(text, str): 
+            return None
         uncertainty_words = ['uncertain', 'likely', 'probably', 'possibly', 'maybe', 'perhaps', 'or', 'either', 'unknown', 'unidentified', 'attributed', 'tentative']
         text_lower = text.lower()
         for word in uncertainty_words:
-            if word in text_lower and "uncertain mint" not in text_lower: return None
+            if word in text_lower and "uncertain mint" not in text_lower: 
+                return None
         segments = text.split('.')
         for i, segment in enumerate(segments):
             segment = segment.strip()
-            if not segment: continue
+            if not segment: 
+                continue
             for official_mint in self.english_to_chinese.keys():
                 escaped_mint = re.escape(official_mint)
                 pattern = r'\b' + escaped_mint + r'\b'
@@ -46,14 +51,17 @@ class InteractiveMintChecker:
                                 if any(re.search(p, segments[j]) for p in year_patterns):
                                     has_year = True
                                     break
-                        if has_year: return official_mint
+                        if has_year: 
+                            return official_mint
         return None
 
     def extract_current_chinese_mint(self, chinese_text):
-        if not chinese_text or not isinstance(chinese_text, str): return None
+        if not chinese_text or not isinstance(chinese_text, str): 
+            return None
         patterns = [r'([^。，\s]{2,15})造幣廠', r'([^。，\s]{2,15})鑄幣廠', r'造幣總廠', r'寶德局']
         for pattern in patterns:
-            if match := re.search(pattern, chinese_text): return match.group(0)
+            if match := re.search(pattern, chinese_text): 
+                return match.group(0)
         return None
 
     def smart_add_mint_name(self, chinese_text, mint_name):
@@ -79,12 +87,43 @@ class InteractiveMintChecker:
                     if current_chinese_mint != official_chinese:
                         corrected_chinese = chinese_text.replace(current_chinese_mint, official_chinese) if current_chinese_mint else self.smart_add_mint_name(chinese_text, official_chinese)
                         df.at[index, chinese_col] = corrected_chinese
-                        if current_chinese_mint is None: change_type = "MISSING"
-                        elif current_chinese_mint.replace('鑄幣廠', '造幣廠') == official_chinese: change_type = "MINOR"
-                        else: change_type = "MAJOR"
-                        corrections.append({'Inventory': inventory_id, 'Row': index + 2, 'Change Type': change_type, 'English Mint Found': english_mint, 'Full English Text': english_text, 'Original Chinese': chinese_text, 'Current Mint': current_chinese_mint or '[無]', 'Corrected To': official_chinese, 'New Chinese Text': corrected_chinese})
+                        if current_chinese_mint is None: 
+                            change_type = "MISSING"
+                        elif current_chinese_mint.replace('鑄幣廠', '造幣廠') == official_chinese: 
+                            change_type = "MINOR"
+                        else: 
+                            change_type = "MAJOR"
+                        corrections.append({
+                            'Inventory': inventory_id, 
+                            'Row': index + 2, 
+                            'Change Type': change_type, 
+                            'English Mint Found': english_mint, 
+                            'Full English Text': english_text, 
+                            'Original Chinese': chinese_text, 
+                            'Current Mint': current_chinese_mint or '[無]', 
+                            'Corrected To': official_chinese, 
+                            'New Chinese Text': corrected_chinese
+                        })
                         corrected_count += 1
-        return df, {"checked_count": checked_count, "skipped_uncertain": skipped_uncertain, "corrected_count": corrected_count, "corrections": corrections}
+        return df, {
+            "checked_count": checked_count, 
+            "skipped_uncertain": skipped_uncertain, 
+            "corrected_count": corrected_count, 
+            "corrections": corrections
+        }
+
+
+# --- FUNCTION TO LOAD DATABASE FROM GITHUB ---
+def load_database_from_github():
+    """Load the database file from GitHub"""
+    try:
+        # URL to your Excel file on GitHub (raw content)
+        url = "https://raw.githubusercontent.com/malgniy244/mint-checker-app/main/cpun%20confirmed%20mint%20names.xlsx"
+        response = requests.get(url)
+        response.raise_for_status()
+        return BytesIO(response.content)
+    except Exception as e:
+        raise Exception(f"Could not download database from GitHub: {str(e)}")
 
 
 # --- THE STREAMLIT UI CODE ---
@@ -94,33 +133,15 @@ def main_app():
 
     checker = InteractiveMintChecker()
     
-    # Automatically load the database from the repository
+    # Load the database from GitHub
     try:
-        import requests
-from io import BytesIO
-
-def load_database_from_github():
-    try:
-        # Replace 'malgniy244' with your actual GitHub username if different
-        url = "https://raw.githubusercontent.com/malgniy244/mint-checker-app/main/cpun%20confirmed%20mint%20names.xlsx"
-        response = requests.get(url)
-        response.raise_for_status()
-        return BytesIO(response.content)
+        db_file = load_database_from_github()
+        checker.load_official_mint_database(db_file)
+        st.sidebar.success("Database loaded from GitHub!")
     except Exception as e:
-        raise Exception(f"Could not download database from GitHub: {str(e)}")
-
-# Then use it like this:
-try:
-    db_file = load_database_from_github()
-    checker.load_official_mint_database(db_file)
-    st.sidebar.success("Database loaded from GitHub!")
-except Exception as e:
-    st.sidebar.error(f"Error: {str(e)}")
-    st.stop()
-        st.sidebar.success("Database loaded automatically!")
-    except Exception as e:
-        st.sidebar.error(f"Error: Could not load the mint database file ('cpun confirmed mint names.xlsx') from the repository. Please make sure it has been uploaded to GitHub.")
-        st.stop() # Stop the app if the database can't be found
+        st.sidebar.error(f"Error: {str(e)}")
+        st.sidebar.info("Make sure 'cpun confirmed mint names.xlsx' is uploaded to your GitHub repository.")
+        st.stop()  # Stop the app if the database can't be found
         
     with st.sidebar:
         st.header("Upload Your File")
@@ -145,22 +166,30 @@ except Exception as e:
                         corrected_df.to_excel(writer, sheet_name='Corrected_Data', index=False)
                         pd.DataFrame(summary['corrections']).to_excel(writer, sheet_name='Corrections_Log', index=False)
                     output.seek(0)
-                    st.download_button(label="📄 Download Corrected File", data=output, file_name=f"MINT_CORRECTED_{uploaded_file.name}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    st.download_button(
+                        label="📄 Download Corrected File", 
+                        data=output, 
+                        file_name=f"MINT_CORRECTED_{uploaded_file.name}", 
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
                 else:
                     st.success("✅ No corrections were needed!")
 
-# --- Set a simple password ---
-PASSWORD = "123456"  # CHANGE THIS!
+
+# --- PASSWORD PROTECTION ---
+PASSWORD = "123456"  # CHANGE THIS TO YOUR DESIRED PASSWORD!
 
 # --- Password check logic ---
 if "password_correct" not in st.session_state:
     st.session_state.password_correct = False
 
-password_guess = st.text_input("Enter Password", type="password")
-if password_guess == PASSWORD:
-    st.session_state.password_correct = True
-
-if st.session_state.password_correct:
+if not st.session_state.password_correct:
+    st.title("🔐 Access Required")
+    password_guess = st.text_input("Enter Password", type="password")
+    if password_guess == PASSWORD:
+        st.session_state.password_correct = True
+        st.rerun()
+    elif password_guess != "":
+        st.error("❌ Password incorrect.")
+else:
     main_app()
-elif password_guess != "":
-    st.error("Password incorrect.")
