@@ -96,7 +96,27 @@ def main_app():
     
     # Automatically load the database from the repository
     try:
-        checker.load_official_mint_database("cpun confirmed mint names.xlsx")
+        import requests
+from io import BytesIO
+
+def load_database_from_github():
+    try:
+        # Replace 'malgniy244' with your actual GitHub username if different
+        url = "https://raw.githubusercontent.com/malgniy244/mint-checker-app/main/cpun%20confirmed%20mint%20names.xlsx"
+        response = requests.get(url)
+        response.raise_for_status()
+        return BytesIO(response.content)
+    except Exception as e:
+        raise Exception(f"Could not download database from GitHub: {str(e)}")
+
+# Then use it like this:
+try:
+    db_file = load_database_from_github()
+    checker.load_official_mint_database(db_file)
+    st.sidebar.success("Database loaded from GitHub!")
+except Exception as e:
+    st.sidebar.error(f"Error: {str(e)}")
+    st.stop()
         st.sidebar.success("Database loaded automatically!")
     except Exception as e:
         st.sidebar.error(f"Error: Could not load the mint database file ('cpun confirmed mint names.xlsx') from the repository. Please make sure it has been uploaded to GitHub.")
