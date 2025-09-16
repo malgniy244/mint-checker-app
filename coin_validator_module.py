@@ -49,6 +49,42 @@ def convert_chinese_compound_number(chinese_str: str) -> int:
     
     # Handle single characters first
     if len(chinese_str) == 1:
+        if chinese_str in CHINESE_DIGITS:
+            return CHINESE_DIGITS[chinese_str]
+        elif chinese_str in PLACE_VALUES:
+            return PLACE_VALUES[chinese_str]
+        else:
+            return 0
+    
+    # Special case: 元年 = year 1
+    if chinese_str == '元' or '元年' in chinese_str:
+        return 1
+    
+    # Parse compound numbers
+    result = 0
+    temp_num = 0
+    
+    i = 0
+    while i < len(chinese_str):
+        char = chinese_str[i]
+        
+        if char in CHINESE_DIGITS:
+            temp_num = CHINESE_DIGITS[char]
+            
+        elif char in PLACE_VALUES:
+            place_value = PLACE_VALUES[char]
+            
+            # Handle cases where no digit precedes place value
+            if temp_num == 0:
+                temp_num = 1
+            
+            if place_value >= 10000:  # 万 and above
+                result = (result + temp_num) * place_value
+                temp_num = 0
+            else:  # 十, 百, 千
+                result += temp_num * place_value
+                temp_num = 0
+        
         i += 1
     
     # Add any remaining number
@@ -69,23 +105,23 @@ def extract_chinese_numbers_complete(text: str) -> Set[str]:
     # Chinese compound number patterns
     patterns = [
         # Republic/Dynasty years (highest priority)
-        r'民国([元一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾佰仟万]+)年',
-        r'光绪([元一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾佰仟万]+)年',
-        r'宣统([元一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾佰仟万]+)年',
+        r'民国([元一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾佰仟万萬]+)年',
+        r'光绪([元一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾佰仟万萬]+)年',
+        r'宣统([元一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾佰仟万萬]+)年',
         
         # Currency denominations
-        r'([元壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)圆',
-        r'([元壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)元(?!年)',
-        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)角',
-        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)分',
-        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)文',
+        r'([元壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)圆',
+        r'([元壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)元(?!年)',
+        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)角',
+        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)分',
+        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)文',
         
         # Traditional weights
-        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)钱',
-        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)两',
+        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)钱',
+        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)两',
         
         # Standalone year patterns
-        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万佰仟]+)年',
+        r'([壹贰叁肆伍陆柒捌玖拾一二三四五六七八九十百千万萬佰仟]+)年',
     ]
     
     for pattern in patterns:
@@ -370,40 +406,4 @@ if __name__ == "__main__":
     try:
         main_interactive_coin()
     except KeyboardInterrupt:
-        print("\nGoodbye!")f chinese_str in CHINESE_DIGITS:
-            return CHINESE_DIGITS[chinese_str]
-        elif chinese_str in PLACE_VALUES:
-            return PLACE_VALUES[chinese_str]
-        else:
-            return 0
-    
-    # Special case: 元年 = year 1
-    if chinese_str == '元' or '元年' in chinese_str:
-        return 1
-    
-    # Parse compound numbers
-    result = 0
-    temp_num = 0
-    
-    i = 0
-    while i < len(chinese_str):
-        char = chinese_str[i]
-        
-        if char in CHINESE_DIGITS:
-            temp_num = CHINESE_DIGITS[char]
-            
-        elif char in PLACE_VALUES:
-            place_value = PLACE_VALUES[char]
-            
-            # Handle cases where no digit precedes place value
-            if temp_num == 0:
-                temp_num = 1
-            
-            if place_value >= 10000:  # 万 and above
-                result = (result + temp_num) * place_value
-                temp_num = 0
-            else:  # 十, 百, 千
-                result += temp_num * place_value
-                temp_num = 0
-        
-        i
+        print("\nGoodbye!")
