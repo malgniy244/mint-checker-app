@@ -1,5 +1,5 @@
 streamlit
-   pandas
-   openpyxl
-   requests
-   xlsxwriter
+pandas
+openpyxl
+requests
+xlsxwriter
