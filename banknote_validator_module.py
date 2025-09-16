@@ -749,6 +749,40 @@ def test_republic_conversion():
     
     return results
 
+def validate_banknote_translations_batch(df: pd.DataFrame, chinese_col: str, english_col: str) -> List[Dict]:
+    """
+    Validate banknote translations in DataFrame.
+    Returns list of issues found - this is the function your unified app expects.
+    """
+    issues = []
+    inventory_col = df.columns[0] if len(df.columns) > 0 else None
+    
+    for index, row in df.iterrows():
+        chinese_text = str(row[chinese_col]) if pd.notna(row[chinese_col]) else ""
+        english_text = str(row[english_col]) if pd.notna(row[english_col]) else ""
+        
+        if not chinese_text or not english_text:
+            continue
+        
+        # Run your sophisticated banknote analysis
+        match, chinese_numbers, english_numbers, status, notes = analyze_banknote_translation(chinese_text, english_text)
+        
+        if not match:
+            inventory_value = row[inventory_col] if inventory_col else f"Row {index + 2}"
+            issues.append({
+                'Row': index + 2,
+                'Inventory': inventory_value,
+                'Column': f"{chinese_col} <-> {english_col}",
+                'Issue_Type': f'BANKNOTE_{status}',
+                'Chinese_Text': chinese_text,
+                'English_Text': english_text,
+                'Chinese_Numbers': ', '.join(sorted(chinese_numbers)),
+                'English_Numbers': ', '.join(sorted(english_numbers)),
+                'Status': 'NEEDS_REVIEW'
+            })
+    
+    return issues
+
 # Run the Streamlit app
 if __name__ == "__main__":
     main() 'N/A'
