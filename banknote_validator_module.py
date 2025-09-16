@@ -783,18 +783,4 @@ def validate_banknote_translations_batch(df: pd.DataFrame, chinese_col: str, eng
 
 # Run the Streamlit app
 if __name__ == "__main__":
-    main()
-    main() 'N/A'
-            result_df.at[index, 'Status'] = 'EMPTY_TEXT'
-            result_df.at[index, 'Analysis Notes'] = 'Empty text'
-            results['skipped'] += 1
-            continue
-        
-        # Process as banknote lots (following original script logic that processes all rows as banknotes)
-        match, chinese_numbers, english_numbers, status, notes = analyze_banknote_translation(chinese_text, english_text)
-        
-        # Update dataframe
-        result_df.at[index, 'Is Banknote Lot'] = True
-        result_df.at[index, 'Numbers Match'] = match
-        result_df.at[index, 'Chinese Numbers (BANKNOTE)'] = ', '.join(sorted(chinese_numbers)) if chinese_numbers else ''
-        result_df.at[index, 'English Numbers (BANKNOTE)'] =
+
