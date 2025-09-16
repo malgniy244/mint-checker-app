@@ -10,17 +10,18 @@ class InteractiveMintChecker:
     def __init__(self):
         self.english_to_chinese = {}
 
-    def load_official_mint_database(self, uploaded_db_file):
+    def load_official_mint_database(self, db_path):
+        """Load the official mint names from a file path."""
         try:
-            self.official_mints = pd.read_excel(uploaded_db_file)
+            self.official_mints = pd.read_excel(db_path)
             for _, row in self.official_mints.iterrows():
                 english = str(row['English Mint Name']).strip()
                 chinese = str(row['Chinese Mint Name']).strip()
                 self.english_to_chinese[english] = chinese
             return f"✅ Loaded {len(self.english_to_chinese)} official mint names."
         except Exception as e:
-            st.error(f"❌ Error loading official mint database: {e}")
-            return None
+            # Re-raise the exception to be caught by the main app logic
+            raise e
 
     def find_english_mint_in_text(self, text):
         if not text or not isinstance(text, str): return None
@@ -86,28 +87,33 @@ class InteractiveMintChecker:
         return df, {"checked_count": checked_count, "skipped_uncertain": skipped_uncertain, "corrected_count": corrected_count, "corrections": corrections}
 
 
-# --- THE NEW STREAMLIT UI CODE ---
+# --- THE STREAMLIT UI CODE ---
 def main_app():
     st.title("🏭 Interactive Mint Name Checker")
     st.markdown("Upload your Excel file, select the columns, and let the tool automatically correct Chinese mint names.")
 
     checker = InteractiveMintChecker()
-
+    
+    # Automatically load the database from the repository
+    try:
+        checker.load_official_mint_database("cpun confirmed mint names.xlsx")
+        st.sidebar.success("Database loaded automatically!")
+    except Exception as e:
+        st.sidebar.error(f"Error: Could not load the mint database file ('cpun confirmed mint names.xlsx') from the repository. Please make sure it has been uploaded to GitHub.")
+        st.stop() # Stop the app if the database can't be found
+        
     with st.sidebar:
-        st.header("1. Upload Files")
-        db_file = st.file_uploader("Upload 'cpun confirmed mint names.xlsx'", type=['xlsx', 'xls'])
+        st.header("Upload Your File")
         uploaded_file = st.file_uploader("Upload Excel File to Check", type=['xlsx', 'xls'])
 
-    if db_file and uploaded_file:
-        message = checker.load_official_mint_database(db_file)
-        if not message: st.stop()
-        
+    if uploaded_file:
         df = pd.read_excel(uploaded_file)
-        st.header("2. Configure Columns")
+        st.header("1. Configure Columns")
         col1, col2 = st.columns(2)
         english_col = col1.selectbox("English Text Column:", df.columns)
         chinese_col = col2.selectbox("Chinese Text Column:", df.columns)
         
+        st.header("2. Process and Download")
         if st.button("🚀 Start Mint Name Processing"):
             with st.spinner("Processing..."):
                 corrected_df, summary = checker.process_file(df.copy(), english_col, chinese_col)
@@ -120,9 +126,11 @@ def main_app():
                         pd.DataFrame(summary['corrections']).to_excel(writer, sheet_name='Corrections_Log', index=False)
                     output.seek(0)
                     st.download_button(label="📄 Download Corrected File", data=output, file_name=f"MINT_CORRECTED_{uploaded_file.name}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                else:
+                    st.success("✅ No corrections were needed!")
 
 # --- Set a simple password ---
-PASSWORD = "your_password_here"  # CHANGE THIS!
+PASSWORD = "123456"  # CHANGE THIS!
 
 # --- Password check logic ---
 if "password_correct" not in st.session_state:
